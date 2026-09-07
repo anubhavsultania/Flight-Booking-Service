@@ -5,6 +5,8 @@ const AppError = require("../utils/errors/app-error");
 const { StatusCodes } = require("http-status-codes");
 const { ServerConfig } = require("../config");
 
+const bookingRepository = new BookingRepository();
+
 async function createBooking(data) {
   const transaction = await db.sequelize.transaction();
   try {
@@ -19,9 +21,16 @@ async function createBooking(data) {
       );
     }
     const totalBillingAmount = data.noOfSeats * flightData.price;
-    console.log(totalBillingAmount);
+    const bookingPayload = { ...data, totalCost: totalBillingAmount };
+    const booking = await bookingRepository.create(bookingPayload, transaction);
+    const response = await axios.patch(
+      `${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${data.flightId}/seats`,
+      {
+        seats: data.noOfSeats,
+      },
+    );
     await transaction.commit();
-    return true;
+    return booking;
   } catch (error) {
     await transaction.rollback();
     throw error;
